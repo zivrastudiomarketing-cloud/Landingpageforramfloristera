@@ -1,5 +1,10 @@
-import { MessageCircle, ChevronDown } from "lucide-react";
-import type { HeroContent } from "./data/heroStore";
+import type { CSSProperties } from "react";
+import { ChevronDown, MessageCircle } from "lucide-react";
+import type {
+  HeroButtonVariant,
+  HeroContent,
+  HeroExtraButton,
+} from "./data/heroStore";
 import { createGeneralWhatsAppLink } from "./data/whatsapp";
 
 interface HeroProps {
@@ -7,114 +12,95 @@ interface HeroProps {
   content: HeroContent;
 }
 
+const getExtraButtonStyle = (variant: HeroButtonVariant): CSSProperties => {
+  if (variant === "filled") {
+    return {
+      backgroundColor: "#4a6741",
+      color: "#fdf6f0",
+      border: "none",
+    };
+  }
+
+  if (variant === "light") {
+    return {
+      backgroundColor: "rgba(253, 246, 240, 0.92)",
+      color: "#3a2e26",
+      border: "1px solid rgba(232, 213, 196, 0.9)",
+    };
+  }
+
+  return {
+    backgroundColor: "transparent",
+    color: "#fdf6f0",
+    border: "2px solid rgba(253, 246, 240, 0.9)",
+  };
+};
+
+const getButtonTarget = (button: HeroExtraButton) => {
+  if (!button.openInNewTab) {
+    return { target: undefined, rel: undefined };
+  }
+
+  return { target: "_blank", rel: "noopener noreferrer" };
+};
+
 export function Hero({ onScrollToGallery, content }: HeroProps) {
   const waLink = createGeneralWhatsAppLink(
-    "Hola, quiero ver los arreglos destacados del banner principal."
+    "Hola, quiero hacer un pedido desde el banner principal."
   );
 
+  const extraButtons = content.extraButtons.filter(
+    (button) => button.enabled && button.label.trim() && button.url.trim()
+  );
+
+  const hasActions =
+    content.showGalleryButton || content.showWhatsAppButton || extraButtons.length > 0;
+
   return (
-    <section
-      className="relative min-h-screen flex items-center overflow-hidden"
-      style={{
-        background:
-          "linear-gradient(135deg, #fdf0e8 0%, #fae6d9 35%, #f5ddd0 60%, #ecd9cc 100%)",
-      }}
-    >
-      <div
-        className="absolute top-0 right-0 w-[500px] h-[500px] opacity-10 pointer-events-none"
-        style={{
-          backgroundImage:
-            "radial-gradient(ellipse at 80% 20%, #4a6741 0%, transparent 60%)",
-        }}
-      />
-      <div
-        className="absolute bottom-0 left-0 w-[400px] h-[400px] opacity-10 pointer-events-none"
-        style={{
-          backgroundImage:
-            "radial-gradient(ellipse at 20% 80%, #4a6741 0%, transparent 60%)",
-        }}
+    <section className="relative min-h-[calc(100vh-75px)] flex items-center overflow-hidden">
+      <img
+        src={content.bannerImage}
+        alt="Banner principal RAME"
+        className="absolute inset-0 w-full h-full object-cover"
       />
 
-      {[
-        { top: "15%", left: "8%", size: 6 },
-        { top: "70%", left: "5%", size: 4 },
-        { top: "30%", right: "12%", size: 5 },
-        { top: "80%", right: "8%", size: 7 },
-        { top: "50%", left: "15%", size: 3 },
-      ].map((dot, index) => (
-        <div
-          key={index}
-          className="absolute rounded-full"
-          style={{
-            top: dot.top,
-            left: (dot as { left?: string }).left,
-            right: (dot as { right?: string }).right,
-            width: dot.size,
-            height: dot.size,
-            backgroundColor: "#c9a96e",
-            opacity: 0.5,
-          }}
-        />
-      ))}
-
-      <svg
-        className="absolute top-16 right-[8%] opacity-20 pointer-events-none"
-        width="120"
-        height="120"
-        viewBox="0 0 120 120"
-        fill="none"
-      >
-        <path
-          d="M60 10 C90 10, 110 40, 110 70 C110 95, 85 110, 60 110 C35 110, 10 95, 10 70 C10 40, 30 10, 60 10Z"
-          fill="#4a6741"
-        />
-        <line x1="60" y1="10" x2="60" y2="110" stroke="#fdf6f0" strokeWidth="1.5" />
-        <line x1="60" y1="45" x2="90" y2="30" stroke="#fdf6f0" strokeWidth="1" />
-        <line x1="60" y1="60" x2="95" y2="55" stroke="#fdf6f0" strokeWidth="1" />
-        <line x1="60" y1="75" x2="90" y2="80" stroke="#fdf6f0" strokeWidth="1" />
-        <line x1="60" y1="45" x2="30" y2="30" stroke="#fdf6f0" strokeWidth="1" />
-        <line x1="60" y1="60" x2="25" y2="55" stroke="#fdf6f0" strokeWidth="1" />
-        <line x1="60" y1="75" x2="30" y2="80" stroke="#fdf6f0" strokeWidth="1" />
-      </svg>
-
-      <svg
-        className="absolute bottom-24 left-[6%] opacity-15 pointer-events-none"
-        width="80"
-        height="80"
-        viewBox="0 0 80 80"
-        fill="none"
-      >
-        <path
-          d="M40 5 C65 5, 75 25, 75 45 C75 65, 58 75, 40 75 C22 75, 5 65, 5 45 C5 25, 15 5, 40 5Z"
-          fill="#4a6741"
-        />
-        <line x1="40" y1="5" x2="40" y2="75" stroke="#fdf6f0" strokeWidth="1.2" />
-        <line x1="40" y1="30" x2="65" y2="22" stroke="#fdf6f0" strokeWidth="0.8" />
-        <line x1="40" y1="45" x2="68" y2="42" stroke="#fdf6f0" strokeWidth="0.8" />
-        <line x1="40" y1="30" x2="15" y2="22" stroke="#fdf6f0" strokeWidth="0.8" />
-        <line x1="40" y1="45" x2="12" y2="42" stroke="#fdf6f0" strokeWidth="0.8" />
-      </svg>
-
       <div
-        className="absolute top-0 left-0 w-full h-[2px]"
+        className="absolute inset-0"
         style={{
           background:
-            "linear-gradient(to right, transparent, #c9a96e 30%, #c9a96e 70%, transparent)",
-          opacity: 0.6,
+            "linear-gradient(106deg, rgba(44, 33, 27, 0.78) 0%, rgba(44, 33, 27, 0.48) 42%, rgba(44, 33, 27, 0.35) 62%, rgba(44, 33, 27, 0.24) 100%)",
         }}
       />
 
-      <div className="relative max-w-7xl mx-auto px-6 py-20 flex flex-col lg:flex-row items-center gap-16 w-full">
-        <div className="flex-1 flex flex-col items-start">
-          <div className="flex items-center gap-3 mb-6">
-            <div className="w-12 h-[1px]" style={{ backgroundColor: "#c9a96e" }} />
+      <div
+        className="absolute inset-0 pointer-events-none"
+        style={{
+          background:
+            "radial-gradient(circle at 22% 14%, rgba(201,169,110,0.24) 0%, transparent 30%), radial-gradient(circle at 88% 88%, rgba(201,169,110,0.14) 0%, transparent 34%)",
+        }}
+      />
+
+      <div className="relative max-w-7xl mx-auto px-6 lg:px-10 py-20 lg:py-24 w-full">
+        <div
+          className="w-full max-w-3xl rounded-[28px] px-6 sm:px-10 py-10 sm:py-12"
+          style={{
+            backgroundColor: "rgba(38, 29, 24, 0.48)",
+            border: "1px solid rgba(253, 246, 240, 0.18)",
+            backdropFilter: "blur(3px)",
+          }}
+        >
+          <div className="flex items-center gap-3 mb-5">
+            <span
+              className="w-10 h-[1px]"
+              style={{ backgroundColor: "rgba(232, 213, 196, 0.9)" }}
+            />
             <span
               style={{
                 fontFamily: "'Lato', sans-serif",
                 fontSize: "11px",
                 fontWeight: 700,
-                color: "#c9a96e",
-                letterSpacing: "0.25em",
+                color: "#f4d8a5",
+                letterSpacing: "0.2em",
                 textTransform: "uppercase",
               }}
             >
@@ -125,209 +111,132 @@ export function Hero({ onScrollToGallery, content }: HeroProps) {
           <h1
             style={{
               fontFamily: "'Playfair Display', serif",
-              fontSize: "clamp(42px, 6vw, 80px)",
+              fontSize: "clamp(42px, 7vw, 92px)",
               fontWeight: 600,
-              color: "#3a2e26",
-              lineHeight: 1.1,
-              marginBottom: "8px",
+              color: "#fff4ec",
+              lineHeight: 1.03,
             }}
           >
             {content.titleLineOne}
           </h1>
-          <h1
+          <h2
             style={{
               fontFamily: "'Playfair Display', serif",
-              fontSize: "clamp(48px, 7vw, 90px)",
+              fontSize: "clamp(44px, 7vw, 96px)",
               fontWeight: 700,
-              color: "#4a6741",
-              lineHeight: 1,
-              marginBottom: "24px",
+              color: "#a9d08a",
+              lineHeight: 1.03,
+              marginTop: "2px",
               fontStyle: "italic",
             }}
           >
             {content.titleLineTwo}
-          </h1>
-
-          <div
-            className="mb-8"
-            style={{
-              width: "80px",
-              height: "2px",
-              background: "linear-gradient(to right, #c9a96e, #e8c87a)",
-            }}
-          />
+          </h2>
 
           <p
             style={{
+              marginTop: "20px",
               fontFamily: "'Lato', sans-serif",
-              fontSize: "clamp(16px, 2vw, 20px)",
+              fontSize: "clamp(16px, 2.2vw, 21px)",
               fontWeight: 300,
-              color: "#6b5044",
-              lineHeight: 1.7,
-              maxWidth: "460px",
-              marginBottom: "40px",
+              color: "#f8e9dc",
+              lineHeight: 1.6,
+              maxWidth: "720px",
             }}
           >
             {content.subtitle}
             <br />
-            <span style={{ color: "#9e7b5a", fontSize: "0.9em" }}>
-              {content.subtitleHighlight}
-            </span>
+            <span style={{ color: "#f4d8a5" }}>{content.subtitleHighlight}</span>
           </p>
 
-          <div className="flex flex-wrap items-center gap-4">
-            <button
-              onClick={onScrollToGallery}
-              className="px-8 py-3.5 rounded-full transition-all duration-200 hover:shadow-lg hover:-translate-y-0.5"
-              style={{
-                backgroundColor: "#4a6741",
-                color: "#fdf6f0",
-                fontFamily: "'Lato', sans-serif",
-                fontSize: "14px",
-                fontWeight: 700,
-                letterSpacing: "0.06em",
-                border: "none",
-                cursor: "pointer",
-              }}
-            >
-              Ver arreglos
-            </button>
-            <a
-              href={waLink}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="flex items-center gap-2 px-8 py-3.5 rounded-full transition-all duration-200 hover:shadow-lg hover:-translate-y-0.5"
-              style={{
-                backgroundColor: "transparent",
-                color: "#4a6741",
-                fontFamily: "'Lato', sans-serif",
-                fontSize: "14px",
-                fontWeight: 700,
-                letterSpacing: "0.06em",
-                border: "2px solid #4a6741",
-                cursor: "pointer",
-                textDecoration: "none",
-              }}
-            >
-              <MessageCircle size={16} />
-              Pedir por WhatsApp
-            </a>
-          </div>
-
-          <div className="flex items-center gap-10 mt-14">
-            {[
-              { value: "+500", label: "Arreglos entregados" },
-              { value: "100%", label: "Flores frescas" },
-              { value: "+8", label: "Anos de experiencia" },
-            ].map((stat, index) => (
-              <div key={index} className="flex flex-col">
-                <span
+          {hasActions && (
+            <div className="mt-8 flex flex-wrap items-center gap-3 sm:gap-4">
+              {content.showGalleryButton && (
+                <button
+                  onClick={onScrollToGallery}
+                  className="px-6 py-3 rounded-full transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg"
                   style={{
-                    fontFamily: "'Playfair Display', serif",
-                    fontSize: "22px",
-                    fontWeight: 600,
-                    color: "#4a6741",
-                  }}
-                >
-                  {stat.value}
-                </span>
-                <span
-                  style={{
+                    backgroundColor: "#4a6741",
+                    color: "#fdf6f0",
+                    border: "none",
                     fontFamily: "'Lato', sans-serif",
-                    fontSize: "11px",
-                    fontWeight: 300,
-                    color: "#9e7b5a",
-                    letterSpacing: "0.04em",
+                    fontSize: "14px",
+                    fontWeight: 700,
+                    letterSpacing: "0.05em",
+                    cursor: "pointer",
                   }}
                 >
-                  {stat.label}
-                </span>
-              </div>
-            ))}
-          </div>
-        </div>
+                  {content.galleryButtonLabel}
+                </button>
+              )}
 
-        <div className="flex-1 flex items-center justify-center relative w-full max-w-[520px]">
-          <div className="relative w-full" style={{ aspectRatio: "0.85" }}>
-            <div
-              className="absolute inset-0 rounded-[32px] overflow-hidden shadow-2xl"
-              style={{ top: "5%", left: "5%", right: "5%", bottom: "5%" }}
-            >
-              <img
-                src={content.mainImage}
-                alt="Arreglo floral RAME"
-                className="w-full h-full object-cover"
-              />
-              <div
-                className="absolute inset-0"
-                style={{
-                  background:
-                    "linear-gradient(to top, rgba(58,46,38,0.3) 0%, transparent 50%)",
-                }}
-              />
-            </div>
+              {content.showWhatsAppButton && (
+                <a
+                  href={waLink}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-2 px-6 py-3 rounded-full transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg"
+                  style={{
+                    backgroundColor: "rgba(253, 246, 240, 0.92)",
+                    color: "#3a2e26",
+                    border: "1px solid rgba(232, 213, 196, 0.9)",
+                    fontFamily: "'Lato', sans-serif",
+                    fontSize: "14px",
+                    fontWeight: 700,
+                    letterSpacing: "0.04em",
+                    textDecoration: "none",
+                  }}
+                >
+                  <MessageCircle size={16} />
+                  {content.whatsAppButtonLabel}
+                </a>
+              )}
 
-            <div
-              className="absolute bottom-[8%] left-0 rounded-2xl p-4 shadow-xl"
-              style={{
-                backgroundColor: "#fdf6f0",
-                zIndex: 10,
-                minWidth: "160px",
-              }}
-            >
-              <div
-                style={{
-                  fontFamily: "'Playfair Display', serif",
-                  fontSize: "13px",
-                  fontWeight: 600,
-                  color: "#3a2e26",
-                }}
-              >
-                {content.badgeTitle}
-              </div>
-              <div
-                style={{
-                  fontFamily: "'Lato', sans-serif",
-                  fontSize: "11px",
-                  color: "#9e7b5a",
-                  marginTop: "2px",
-                }}
-              >
-                {content.badgeSubtitle}
-              </div>
-            </div>
+              {extraButtons.map((button) => {
+                const { target, rel } = getButtonTarget(button);
 
-            <div
-              className="absolute top-0 right-0 w-[44%] h-[44%] rounded-2xl overflow-hidden shadow-lg"
-              style={{ zIndex: 10 }}
-            >
-              <img
-                src={content.accentImage}
-                alt="Detalle arreglo"
-                className="w-full h-full object-cover"
-              />
+                return (
+                  <a
+                    key={button.id}
+                    href={button.url}
+                    target={target}
+                    rel={rel}
+                    className="inline-flex items-center gap-2 px-6 py-3 rounded-full transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg"
+                    style={{
+                      ...getExtraButtonStyle(button.variant),
+                      fontFamily: "'Lato', sans-serif",
+                      fontSize: "14px",
+                      fontWeight: 700,
+                      letterSpacing: "0.04em",
+                      textDecoration: "none",
+                    }}
+                  >
+                    {button.label}
+                  </a>
+                );
+              })}
             </div>
-          </div>
+          )}
         </div>
       </div>
 
       <button
         onClick={onScrollToGallery}
-        className="absolute bottom-8 left-1/2 -translate-x-1/2 flex flex-col items-center gap-1 opacity-60 hover:opacity-100 transition-opacity"
+        className="absolute bottom-7 left-1/2 -translate-x-1/2 flex flex-col items-center gap-1 opacity-75 hover:opacity-100 transition-opacity"
         style={{ border: "none", background: "none", cursor: "pointer" }}
       >
         <span
           style={{
             fontFamily: "'Lato', sans-serif",
             fontSize: "10px",
-            color: "#9e7b5a",
-            letterSpacing: "0.15em",
+            color: "#f8e9dc",
+            letterSpacing: "0.18em",
             textTransform: "uppercase",
           }}
         >
           Explorar
         </span>
-        <ChevronDown size={18} color="#9e7b5a" className="animate-bounce" />
+        <ChevronDown size={18} color="#f8e9dc" className="animate-bounce" />
       </button>
     </section>
   );
