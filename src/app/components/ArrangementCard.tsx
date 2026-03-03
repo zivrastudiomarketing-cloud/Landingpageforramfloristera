@@ -1,5 +1,6 @@
-import { Eye } from "lucide-react";
+import { Eye, MessageCircle } from "lucide-react";
 import type { Arrangement } from "./data/arrangements";
+import { createProductWhatsAppLink } from "./data/whatsapp";
 
 interface ArrangementCardProps {
   arrangement: Arrangement;
@@ -14,6 +15,8 @@ export function ArrangementCard({ arrangement, onClick }: ArrangementCardProps) 
       minimumFractionDigits: 0,
     }).format(price);
 
+  const waLink = createProductWhatsAppLink(arrangement.name);
+
   return (
     <div
       className="group relative flex flex-col rounded-3xl overflow-hidden cursor-pointer transition-all duration-300 hover:-translate-y-2 hover:shadow-xl"
@@ -24,7 +27,6 @@ export function ArrangementCard({ arrangement, onClick }: ArrangementCardProps) 
       }}
       onClick={() => onClick(arrangement)}
     >
-      {/* Image */}
       <div className="relative overflow-hidden" style={{ aspectRatio: "4/3" }}>
         <img
           src={arrangement.images[0]}
@@ -52,7 +54,7 @@ export function ArrangementCard({ arrangement, onClick }: ArrangementCardProps) 
             </span>
           </div>
         </div>
-        {/* Badge */}
+
         {arrangement.badge && (
           <div
             className="absolute top-3 left-3 px-3 py-1 rounded-full"
@@ -68,7 +70,7 @@ export function ArrangementCard({ arrangement, onClick }: ArrangementCardProps) 
             {arrangement.badge}
           </div>
         )}
-        {/* Price badge */}
+
         <div
           className="absolute bottom-3 right-3 px-3 py-1.5 rounded-xl shadow-md"
           style={{
@@ -89,8 +91,7 @@ export function ArrangementCard({ arrangement, onClick }: ArrangementCardProps) 
         </div>
       </div>
 
-      {/* Content */}
-      <div className="flex flex-col gap-3 p-5">
+      <div className="flex flex-col gap-3 p-5 h-full">
         <h3
           style={{
             fontFamily: "'Playfair Display', serif",
@@ -103,7 +104,6 @@ export function ArrangementCard({ arrangement, onClick }: ArrangementCardProps) 
           {arrangement.name}
         </h3>
 
-        {/* Tags */}
         <div className="flex flex-wrap gap-1.5">
           {arrangement.tags.slice(0, 4).map((tag) => (
             <span
@@ -122,7 +122,6 @@ export function ArrangementCard({ arrangement, onClick }: ArrangementCardProps) 
           ))}
         </div>
 
-        {/* Footer */}
         <div className="flex items-center justify-between mt-1">
           <span
             style={{
@@ -131,27 +130,47 @@ export function ArrangementCard({ arrangement, onClick }: ArrangementCardProps) 
               color: "#9e7b5a",
             }}
           >
-            🌿 {arrangement.flowers.join(" · ")}
+            Flores: {arrangement.flowers.join(" · ")}
           </span>
-          <button
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg transition-colors duration-150 hover:bg-[#4a6741] hover:text-[#fdf6f0]"
-            style={{
-              backgroundColor: "#f0ebe4",
-              color: "#4a6741",
-              fontFamily: "'Lato', sans-serif",
-              fontSize: "12px",
-              fontWeight: 700,
-              border: "none",
-              cursor: "pointer",
-            }}
-            onClick={(e) => {
-              e.stopPropagation();
-              onClick(arrangement);
-            }}
-          >
-            <Eye size={12} />
-            Ver detalles
-          </button>
+          <div className="flex items-center gap-2">
+            <a
+              href={waLink}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg transition-colors duration-150 hover:opacity-90"
+              style={{
+                backgroundColor: "#4a6741",
+                color: "#fdf6f0",
+                fontFamily: "'Lato', sans-serif",
+                fontSize: "12px",
+                fontWeight: 700,
+                textDecoration: "none",
+              }}
+              onClick={(event) => event.stopPropagation()}
+            >
+              <MessageCircle size={12} />
+              WhatsApp
+            </a>
+            <button
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg transition-colors duration-150 hover:bg-[#4a6741] hover:text-[#fdf6f0]"
+              style={{
+                backgroundColor: "#f0ebe4",
+                color: "#4a6741",
+                fontFamily: "'Lato', sans-serif",
+                fontSize: "12px",
+                fontWeight: 700,
+                border: "none",
+                cursor: "pointer",
+              }}
+              onClick={(event) => {
+                event.stopPropagation();
+                onClick(arrangement);
+              }}
+            >
+              <Eye size={12} />
+              Ver
+            </button>
+          </div>
         </div>
       </div>
     </div>

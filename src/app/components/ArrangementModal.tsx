@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { X, MessageCircle, ChevronLeft, ChevronRight } from "lucide-react";
 import type { Arrangement } from "./data/arrangements";
+import { createProductWhatsAppLink } from "./data/whatsapp";
 
 interface ArrangementModalProps {
   arrangement: Arrangement | null;
@@ -29,8 +30,7 @@ export function ArrangementModal({ arrangement, onClose }: ArrangementModalProps
       minimumFractionDigits: 0,
     }).format(price);
 
-  const encodedName = encodeURIComponent(arrangement.name);
-  const waLink = `https://wa.me/573224238092?text=Hola%2C%20quiero%20cotizar%20un%20arreglo%20como%3A%20${encodedName}.%20%C2%BFMe%20ayudas%20por%20favor%3F`;
+  const waLink = createProductWhatsAppLink(arrangement.name);
 
   const prevImage = () =>
     setCurrentImage((p) =>

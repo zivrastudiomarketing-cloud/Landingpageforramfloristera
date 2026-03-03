@@ -1,5 +1,5 @@
 import { MessageCircle } from "lucide-react";
-import logoImg from "figma:asset/fa7203f638ae67d5137e7b4d8dbf6e6b51e0a54c.png";
+import logoImg from "../../assets/fa7203f638ae67d5137e7b4d8dbf6e6b51e0a54c.png";
 
 function TikTokIcon() {
   return (

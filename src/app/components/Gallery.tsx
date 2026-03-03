@@ -1,13 +1,14 @@
 import { useState } from "react";
 import { ArrangementCard } from "./ArrangementCard";
 import { ArrangementModal } from "./ArrangementModal";
-import { arrangements, type Arrangement } from "./data/arrangements";
+import type { Arrangement } from "./data/arrangements";
 
 interface GalleryProps {
   searchFilters?: any;
+  products: Arrangement[];
 }
 
-export function Gallery({ searchFilters }: GalleryProps) {
+export function Gallery({ searchFilters, products }: GalleryProps) {
   const [selected, setSelected] = useState<Arrangement | null>(null);
   const [activeTab, setActiveTab] = useState<"featured" | "all">("featured");
 
@@ -58,8 +59,8 @@ export function Gallery({ searchFilters }: GalleryProps) {
     return result;
   };
 
-  const featuredItems = applyFilters(arrangements.filter((a) => a.featured));
-  const allItems = applyFilters(arrangements);
+  const featuredItems = applyFilters(products.filter((a) => a.featured));
+  const allItems = applyFilters(products);
 
   const displayItems = activeTab === "featured" ? featuredItems : allItems;
 
