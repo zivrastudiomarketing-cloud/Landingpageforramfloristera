@@ -23,6 +23,7 @@ import {
   getProductCategory,
 } from "./data/productsStore";
 import { createProductWhatsAppLink } from "./data/whatsapp";
+import { compressImageFile } from "./data/imageCompression";
 
 interface AdminPanelProps {
   products: Arrangement[];
@@ -76,6 +77,8 @@ export function AdminPanel({
   const [form, setForm] = useState<ProductFormState>(EMPTY_FORM);
   const [editingId, setEditingId] = useState<number | null>(null);
   const [errorMessage, setErrorMessage] = useState("");
+  const [compressingHeroImage, setCompressingHeroImage] = useState(false);
+  const [compressingProductImage, setCompressingProductImage] = useState(false);
 
   useEffect(() => {
     setHeroForm(heroContent);
@@ -93,18 +96,32 @@ export function AdminPanel({
 
   const handleHeroImageUpload =
     (key: "mainImage" | "accentImage") =>
-    (event: ChangeEvent<HTMLInputElement>) => {
+    async (event: ChangeEvent<HTMLInputElement>) => {
       const file = event.target.files?.[0];
       if (!file) return;
-
-      const reader = new FileReader();
-      reader.onload = () => {
-        if (typeof reader.result === "string") {
-          updateHeroField(key, reader.result);
-        }
-      };
-      reader.readAsDataURL(file);
       event.target.value = "";
+
+      setCompressingHeroImage(true);
+      try {
+        const compressed = await compressImageFile(file, {
+          maxWidth: 1600,
+          maxHeight: 1600,
+          targetBytes: 300 * 1024,
+        });
+        updateHeroField(key, compressed.dataUrl);
+        setBannerMessage({
+          type: "success",
+          text: `Imagen comprimida automaticamente a ${Math.round(
+            compressed.bytes / 1024
+          )} KB.`,
+        });
+      } catch (error) {
+        const message =
+          error instanceof Error ? error.message : "No se pudo comprimir la imagen.";
+        setBannerMessage({ type: "error", text: message });
+      } finally {
+        setCompressingHeroImage(false);
+      }
     };
 
   const handleSaveHero = (event: FormEvent<HTMLFormElement>) => {
@@ -157,18 +174,27 @@ export function AdminPanel({
   const getNextProductId = () =>
     products.length > 0 ? Math.max(...products.map((product) => product.id)) + 1 : 1;
 
-  const handleImageUpload = (event: ChangeEvent<HTMLInputElement>) => {
+  const handleImageUpload = async (event: ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) return;
-
-    const reader = new FileReader();
-    reader.onload = () => {
-      if (typeof reader.result === "string") {
-        updateField("image", reader.result);
-      }
-    };
-    reader.readAsDataURL(file);
     event.target.value = "";
+
+    setCompressingProductImage(true);
+    try {
+      const compressed = await compressImageFile(file, {
+        maxWidth: 1400,
+        maxHeight: 1400,
+        targetBytes: 240 * 1024,
+      });
+      updateField("image", compressed.dataUrl);
+      setErrorMessage("");
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : "No se pudo comprimir la imagen.";
+      setErrorMessage(message);
+    } finally {
+      setCompressingProductImage(false);
+    }
   };
 
   const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
@@ -235,7 +261,11 @@ export function AdminPanel({
     if (!confirmed) return;
 
     const nextProducts = products.filter((item) => item.id !== product.id);
-    onProductsChange(nextProducts);
+    const result = onProductsChange(nextProducts);
+    if (!result.ok) {
+      setErrorMessage(result.error ?? "No se pudo eliminar el producto.");
+      return;
+    }
 
     if (editingId === product.id) {
       resetForm();
@@ -422,10 +452,11 @@ export function AdminPanel({
                     color: "#4a6741",
                     fontSize: "13px",
                     fontWeight: 700,
+                    opacity: compressingHeroImage ? 0.7 : 1,
                   }}
                 >
                   <ImagePlus size={14} />
-                  Subir imagen principal
+                  {compressingHeroImage ? "Comprimiendo..." : "Subir imagen principal"}
                   <input
                     type="file"
                     accept="image/*"
@@ -453,10 +484,11 @@ export function AdminPanel({
                     color: "#4a6741",
                     fontSize: "13px",
                     fontWeight: 700,
+                    opacity: compressingHeroImage ? 0.7 : 1,
                   }}
                 >
                   <ImagePlus size={14} />
-                  Subir imagen secundaria
+                  {compressingHeroImage ? "Comprimiendo..." : "Subir imagen secundaria"}
                   <input
                     type="file"
                     accept="image/*"
@@ -628,10 +660,11 @@ export function AdminPanel({
                   color: "#4a6741",
                   fontSize: "13px",
                   fontWeight: 700,
+                  opacity: compressingProductImage ? 0.7 : 1,
                 }}
               >
                 <Upload size={14} />
-                Subir archivo
+                {compressingProductImage ? "Comprimiendo..." : "Subir archivo"}
                 <input
                   type="file"
                   accept="image/*"
