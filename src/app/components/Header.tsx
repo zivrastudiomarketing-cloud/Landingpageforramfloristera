@@ -34,8 +34,8 @@ export function Header({ onNavClick }: HeaderProps) {
             src={logoImg}
             alt="RAME Floristeria y Decoraciones"
             style={{
-              height: "94px",
-              width: "auto",
+              width: "250px",
+              height: "70px",
               objectFit: "contain",
               backgroundColor: "transparent",
             }}
