@@ -31,7 +31,7 @@ interface AdminPanelProps {
   products: Arrangement[];
   onProductsChange: (
     products: Arrangement[]
-  ) => { ok: boolean; error?: string };
+  ) => Promise<{ ok: boolean; error?: string }>;
   heroContent: HeroContent;
   onHeroContentChange: (
     content: HeroContent
@@ -193,7 +193,7 @@ export function AdminPanel({
     }
   };
 
-  const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
+  const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
 
     const name = form.name.trim();
@@ -235,7 +235,7 @@ export function AdminPanel({
         )
       : [nextProduct, ...products];
 
-    const result = onProductsChange(nextProducts);
+    const result = await onProductsChange(nextProducts);
     if (!result.ok) {
       setErrorMessage(result.error ?? "No se pudo guardar el producto.");
       return;
@@ -257,14 +257,14 @@ export function AdminPanel({
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
-  const handleDelete = (product: Arrangement) => {
+  const handleDelete = async (product: Arrangement) => {
     const confirmed = window.confirm(
       `Quieres eliminar el producto "${product.name}"? Esta accion no se puede deshacer.`
     );
     if (!confirmed) return;
 
     const nextProducts = products.filter((item) => item.id !== product.id);
-    const result = onProductsChange(nextProducts);
+    const result = await onProductsChange(nextProducts);
     if (!result.ok) {
       setErrorMessage(result.error ?? "No se pudo eliminar el producto.");
       return;

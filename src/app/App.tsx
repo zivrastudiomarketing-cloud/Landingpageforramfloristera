@@ -20,6 +20,10 @@ import {
 } from "./components/data/heroStore";
 import { getAdminSession, setAdminSession } from "./components/data/adminAuth";
 import type { ArrangementSearchFilters } from "./components/data/searchFilters";
+import {
+  getSharedStore,
+  syncSharedStorePatch,
+} from "./components/data/sharedStore";
 
 const isAdminPath = () => {
   if (typeof window === "undefined") return false;
@@ -74,6 +78,28 @@ export default function App() {
   }, []);
 
   useEffect(() => {
+    let mounted = true;
+
+    void getSharedStore().then((remote) => {
+      if (!mounted || !remote.ok) return;
+
+      if (remote.products) {
+        setProducts(remote.products);
+        persistProductsToStorage(remote.products);
+      }
+
+      if (remote.heroContent) {
+        setHeroContent(remote.heroContent);
+        void persistHeroContentToStorage(remote.heroContent);
+      }
+    });
+
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
+  useEffect(() => {
     if (!isAdminView) {
       setIsAdminAuthenticated(false);
       return;
@@ -113,14 +139,40 @@ export default function App() {
     galleryRef.current?.scrollIntoView({ behavior: "smooth" });
   };
 
-  const handleProductsChange = (nextProducts: Arrangement[]) => {
+  const handleProductsChange = async (nextProducts: Arrangement[]) => {
     setProducts(nextProducts);
-    return persistProductsToStorage(nextProducts);
+    const localResult = persistProductsToStorage(nextProducts);
+    if (!localResult.ok) return localResult;
+
+    const sharedResult = await syncSharedStorePatch({ products: nextProducts });
+    if (!sharedResult.ok) {
+      return {
+        ok: false,
+        error:
+          sharedResult.error ??
+          "Se guardo en este dispositivo, pero no se sincronizo para otros dispositivos.",
+      };
+    }
+
+    return { ok: true };
   };
 
   const handleHeroContentChange = async (nextHeroContent: HeroContent) => {
     setHeroContent(nextHeroContent);
-    return await persistHeroContentToStorage(nextHeroContent);
+    const localResult = await persistHeroContentToStorage(nextHeroContent);
+    if (!localResult.ok) return localResult;
+
+    const sharedResult = await syncSharedStorePatch({ heroContent: nextHeroContent });
+    if (!sharedResult.ok) {
+      return {
+        ok: false,
+        error:
+          sharedResult.error ??
+          "Se guardo en este dispositivo, pero no se sincronizo para otros dispositivos.",
+      };
+    }
+
+    return { ok: true };
   };
 
   const handleAdminLoginSuccess = () => {

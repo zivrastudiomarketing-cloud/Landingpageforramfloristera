@@ -64,6 +64,7 @@ En Vercel define variables de entorno en Project Settings:
 - `ADMIN_PASSWORD`
 - `ADMIN_SESSION_SECRET`
 - `ADMIN_SESSION_MAX_AGE_SECONDS` (opcional)
+- `BLOB_READ_WRITE_TOKEN` (obligatorio para que banner/productos se sincronicen entre dispositivos)
 
 Despues de guardar variables, fuerza un nuevo deploy.
 
