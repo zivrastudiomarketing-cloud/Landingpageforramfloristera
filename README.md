@@ -1,12 +1,12 @@
-# Landing Page RAMÉ Floristería
+# Landing Page RAME Floristeria
 
-Landing page en React + Vite para catálogo y contacto, con panel administrativo protegido por sesión HTTP en backend.
+Landing page en React + Vite para catalogo y contacto, con panel administrativo protegido por sesion HTTP.
 
 ## Requisitos
 
 - Node.js 20 o superior
 
-## Configuración
+## Configuracion local
 
 1. Copia el archivo de ejemplo:
 
@@ -35,10 +35,10 @@ npm run dev
 ```
 
 Este comando levanta:
-- API de autenticación (`/api/admin/*`)
+- API local de autenticacion (`/api/admin/*`)
 - Frontend Vite
 
-## Producción
+## Produccion local
 
 Compilar frontend:
 
@@ -46,20 +46,35 @@ Compilar frontend:
 npm run build
 ```
 
-Levantar servidor de producción (API + estáticos de `dist`):
+Levantar servidor de produccion local (API + estaticos de `dist`):
 
 ```bash
 npm run start
 ```
 
+## Despliegue en Vercel
+
+Este repo incluye funciones serverless en:
+- `api/admin/login.js`
+- `api/admin/session.js`
+- `api/admin/logout.js`
+
+En Vercel define variables de entorno en Project Settings:
+- `ADMIN_USERNAME`
+- `ADMIN_PASSWORD`
+- `ADMIN_SESSION_SECRET`
+- `ADMIN_SESSION_MAX_AGE_SECONDS` (opcional)
+
+Despues de guardar variables, fuerza un nuevo deploy.
+
 ## Seguridad del panel admin
 
-- El frontend ya no contiene credenciales hardcodeadas.
-- Login y sesión se validan en backend.
-- La sesión se mantiene en cookie firmada (`HttpOnly`, `SameSite=Lax`).
-- El panel sigue accesible desde `#admin`, pero requiere sesión válida en servidor.
+- El frontend no contiene credenciales hardcodeadas.
+- Login y sesion se validan en backend (local o Vercel Functions).
+- La sesion usa cookie firmada (`HttpOnly`, `SameSite=Lax`).
+- El panel sigue accesible desde `#admin`, pero requiere sesion valida.
 
 ## Persistencia de contenido
 
 - Productos: `localStorage`
-- Contenido del hero/banner: `localStorage` + respaldo en `IndexedDB`
+- Hero/banner: `localStorage` + respaldo en `IndexedDB`
