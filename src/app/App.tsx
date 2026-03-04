@@ -66,6 +66,8 @@ export default function App() {
     return <AdminPanel products={products} onProductsChange={setProducts} />;
   }
 
+  // addsdsd
+
   return (
     <div
       style={{
