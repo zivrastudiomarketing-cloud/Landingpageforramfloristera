@@ -6,11 +6,12 @@ interface HeroProps {
 
 export function Hero({ content }: HeroProps) {
   return (
-    <section className="relative min-h-[calc(100vh-75px)] overflow-hidden">
+    <section className="relative w-full aspect-[16/9] overflow-hidden">
       <img
         src={content.bannerImage}
         alt="Banner principal RAME"
         className="absolute inset-0 w-full h-full object-cover"
+        style={{ objectPosition: "center center" }}
       />
     </section>
   );
