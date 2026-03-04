@@ -1,7 +1,16 @@
-import { type ChangeEvent, type FormEvent, useMemo, useState } from "react";
+import {
+  type ChangeEvent,
+  type FormEvent,
+  useEffect,
+  useMemo,
+  useState,
+} from "react";
 import {
   ArrowLeft,
+  ImagePlus,
+  LogOut,
   MessageCircle,
+  Plus,
   Pencil,
   Save,
   Trash2,
@@ -9,15 +18,30 @@ import {
   XCircle,
 } from "lucide-react";
 import type { Arrangement } from "./data/arrangements";
+import type {
+  HeroButtonVariant,
+  HeroContent,
+  HeroExtraButton,
+} from "./data/heroStore";
 import {
   arrangementFromAdminInput,
   getProductCategory,
+  PRODUCT_PRICE_MAX,
+  PRODUCT_PRICE_MIN,
 } from "./data/productsStore";
 import { createProductWhatsAppLink } from "./data/whatsapp";
+import { compressImageFile } from "./data/imageCompression";
 
 interface AdminPanelProps {
   products: Arrangement[];
-  onProductsChange: (products: Arrangement[]) => void;
+  onProductsChange: (
+    products: Arrangement[]
+  ) => { ok: boolean; error?: string };
+  heroContent: HeroContent;
+  onHeroContentChange: (
+    content: HeroContent
+  ) => Promise<{ ok: boolean; error?: string }>;
+  onLogout: () => void;
 }
 
 interface ProductFormState {
@@ -28,6 +52,11 @@ interface ProductFormState {
   image: string;
 }
 
+type BannerMessage = {
+  type: "success" | "error";
+  text: string;
+} | null;
+
 const EMPTY_FORM: ProductFormState = {
   name: "",
   description: "",
@@ -36,6 +65,29 @@ const EMPTY_FORM: ProductFormState = {
   image: "",
 };
 
+const HERO_BUTTON_VARIANTS: Array<{ value: HeroButtonVariant; label: string }> = [
+  { value: "filled", label: "Solido" },
+  { value: "outline", label: "Borde" },
+  { value: "light", label: "Claro" },
+];
+
+const generateHeroButtonId = () => {
+  if (typeof crypto !== "undefined" && "randomUUID" in crypto) {
+    return crypto.randomUUID();
+  }
+
+  return `hero-btn-${Date.now()}-${Math.floor(Math.random() * 100000)}`;
+};
+
+const createEmptyHeroButton = (): HeroExtraButton => ({
+  id: generateHeroButtonId(),
+  label: "",
+  url: "",
+  variant: "outline",
+  enabled: true,
+  openInNewTab: true,
+});
+
 const formatPrice = (price: number) =>
   new Intl.NumberFormat("es-CO", {
     style: "currency",
@@ -43,15 +95,147 @@ const formatPrice = (price: number) =>
     minimumFractionDigits: 0,
   }).format(price);
 
-export function AdminPanel({ products, onProductsChange }: AdminPanelProps) {
+export function AdminPanel({
+  products,
+  onProductsChange,
+  heroContent,
+  onHeroContentChange,
+  onLogout,
+}: AdminPanelProps) {
+  const [heroForm, setHeroForm] = useState<HeroContent>(heroContent);
+  const [bannerMessage, setBannerMessage] = useState<BannerMessage>(null);
   const [form, setForm] = useState<ProductFormState>(EMPTY_FORM);
   const [editingId, setEditingId] = useState<number | null>(null);
   const [errorMessage, setErrorMessage] = useState("");
+  const [compressingHeroImage, setCompressingHeroImage] = useState(false);
+  const [compressingProductImage, setCompressingProductImage] = useState(false);
+
+  useEffect(() => {
+    setHeroForm(heroContent);
+  }, [heroContent]);
 
   const sortedProducts = useMemo(
     () => [...products].sort((a, b) => b.id - a.id),
     [products]
   );
+
+  const updateHeroField = <K extends keyof HeroContent>(
+    key: K,
+    value: HeroContent[K]
+  ) => {
+    setHeroForm((prev) => ({ ...prev, [key]: value }));
+    if (bannerMessage) setBannerMessage(null);
+  };
+
+  const handleHeroImageUpload =
+    (key: "bannerImage") =>
+    async (event: ChangeEvent<HTMLInputElement>) => {
+      const file = event.target.files?.[0];
+      if (!file) return;
+      event.target.value = "";
+
+      setCompressingHeroImage(true);
+      try {
+        const compressed = await compressImageFile(file, {
+          maxWidth: 1920,
+          maxHeight: 1920,
+          targetBytes: 320 * 1024,
+        });
+        updateHeroField(key, compressed.dataUrl);
+        setBannerMessage({
+          type: "success",
+          text: `Imagen comprimida automaticamente a ${Math.round(
+            compressed.bytes / 1024
+          )} KB.`,
+        });
+      } catch (error) {
+        const message =
+          error instanceof Error ? error.message : "No se pudo comprimir la imagen.";
+        setBannerMessage({ type: "error", text: message });
+      } finally {
+        setCompressingHeroImage(false);
+      }
+    };
+
+  const updateHeroButton = <K extends keyof HeroExtraButton>(
+    buttonId: string,
+    key: K,
+    value: HeroExtraButton[K]
+  ) => {
+    setHeroForm((prev) => ({
+      ...prev,
+      extraButtons: prev.extraButtons.map((button) =>
+        button.id === buttonId ? { ...button, [key]: value } : button
+      ),
+    }));
+    if (bannerMessage) setBannerMessage(null);
+  };
+
+  const addHeroButton = () => {
+    setHeroForm((prev) => ({
+      ...prev,
+      extraButtons: [...prev.extraButtons, createEmptyHeroButton()],
+    }));
+    if (bannerMessage) setBannerMessage(null);
+  };
+
+  const removeHeroButton = (buttonId: string) => {
+    setHeroForm((prev) => ({
+      ...prev,
+      extraButtons: prev.extraButtons.filter((button) => button.id !== buttonId),
+    }));
+    if (bannerMessage) setBannerMessage(null);
+  };
+
+  const handleSaveHero = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+
+    const normalizedButtons = heroForm.extraButtons
+      .map((button) => ({
+        id: button.id.trim() || generateHeroButtonId(),
+        label: button.label.trim(),
+        url: button.url.trim(),
+        variant: button.variant,
+        enabled: button.enabled,
+        openInNewTab: button.openInNewTab,
+      }))
+      .filter((button) => button.label && button.url);
+
+    const normalized: HeroContent = {
+      monthLabel: heroForm.monthLabel.trim(),
+      titleLineOne: heroForm.titleLineOne.trim(),
+      titleLineTwo: heroForm.titleLineTwo.trim(),
+      subtitle: heroForm.subtitle.trim(),
+      subtitleHighlight: heroForm.subtitleHighlight.trim(),
+      bannerImage: heroForm.bannerImage.trim(),
+      showGalleryButton: heroForm.showGalleryButton,
+      galleryButtonLabel: heroForm.galleryButtonLabel.trim() || "Ver arreglos",
+      showWhatsAppButton: heroForm.showWhatsAppButton,
+      whatsAppButtonLabel:
+        heroForm.whatsAppButtonLabel.trim() || "Pedir por WhatsApp",
+      extraButtons: normalizedButtons,
+    };
+
+    if (!normalized.bannerImage) {
+      setBannerMessage({
+        type: "error",
+        text: "La imagen principal del banner es obligatoria.",
+      });
+      return;
+    }
+
+    const result = await onHeroContentChange(normalized);
+
+    if (!result.ok) {
+      setBannerMessage({
+        type: "error",
+        text: result.error ?? "No se pudo guardar el banner.",
+      });
+      return;
+    }
+
+    setBannerMessage({ type: "success", text: "Banner principal actualizado." });
+  };
 
   const updateField = (key: keyof ProductFormState, value: string) => {
     setForm((prev) => ({ ...prev, [key]: value }));
@@ -67,18 +251,27 @@ export function AdminPanel({ products, onProductsChange }: AdminPanelProps) {
   const getNextProductId = () =>
     products.length > 0 ? Math.max(...products.map((product) => product.id)) + 1 : 1;
 
-  const handleImageUpload = (event: ChangeEvent<HTMLInputElement>) => {
+  const handleImageUpload = async (event: ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) return;
-
-    const reader = new FileReader();
-    reader.onload = () => {
-      if (typeof reader.result === "string") {
-        updateField("image", reader.result);
-      }
-    };
-    reader.readAsDataURL(file);
     event.target.value = "";
+
+    setCompressingProductImage(true);
+    try {
+      const compressed = await compressImageFile(file, {
+        maxWidth: 1400,
+        maxHeight: 1400,
+        targetBytes: 240 * 1024,
+      });
+      updateField("image", compressed.dataUrl);
+      setErrorMessage("");
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : "No se pudo comprimir la imagen.";
+      setErrorMessage(message);
+    } finally {
+      setCompressingProductImage(false);
+    }
   };
 
   const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
@@ -95,8 +288,15 @@ export function AdminPanel({ products, onProductsChange }: AdminPanelProps) {
       return;
     }
 
-    if (!Number.isFinite(price) || price <= 0) {
-      setErrorMessage("El precio debe ser un numero mayor a 0.");
+    if (
+      !Number.isFinite(price) ||
+      !Number.isInteger(price) ||
+      price < PRODUCT_PRICE_MIN ||
+      price > PRODUCT_PRICE_MAX
+    ) {
+      setErrorMessage(
+        `El precio debe ser un numero entero entre ${PRODUCT_PRICE_MIN} y ${PRODUCT_PRICE_MAX}.`
+      );
       return;
     }
 
@@ -116,7 +316,12 @@ export function AdminPanel({ products, onProductsChange }: AdminPanelProps) {
         )
       : [nextProduct, ...products];
 
-    onProductsChange(nextProducts);
+    const result = onProductsChange(nextProducts);
+    if (!result.ok) {
+      setErrorMessage(result.error ?? "No se pudo guardar el producto.");
+      return;
+    }
+
     resetForm();
   };
 
@@ -140,11 +345,23 @@ export function AdminPanel({ products, onProductsChange }: AdminPanelProps) {
     if (!confirmed) return;
 
     const nextProducts = products.filter((item) => item.id !== product.id);
-    onProductsChange(nextProducts);
+    const result = onProductsChange(nextProducts);
+    if (!result.ok) {
+      setErrorMessage(result.error ?? "No se pudo eliminar el producto.");
+      return;
+    }
 
     if (editingId === product.id) {
       resetForm();
     }
+  };
+
+  const goBackToSite = () => {
+    if (window.location.hash.toLowerCase().includes("admin")) {
+      window.location.hash = "";
+      return;
+    }
+    window.location.href = "/";
   };
 
   return (
@@ -181,30 +398,41 @@ export function AdminPanel({ products, onProductsChange }: AdminPanelProps) {
                 lineHeight: 1.1,
               }}
             >
-              Panel de productos
+              Panel de productos y banner
             </h1>
           </div>
 
-          <button
-            type="button"
-            onClick={() => {
-              if (window.location.hash.toLowerCase().includes("admin")) {
-                window.location.hash = "";
-              } else {
-                window.location.href = "/";
-              }
-            }}
-            className="flex items-center gap-2 px-4 py-2 rounded-xl"
-            style={{
-              backgroundColor: "#4a6741",
-              color: "#fdf6f0",
-              border: "none",
-              cursor: "pointer",
-            }}
-          >
-            <ArrowLeft size={16} />
-            Volver al sitio
-          </button>
+          <div className="flex items-center gap-3">
+            <button
+              type="button"
+              onClick={goBackToSite}
+              className="flex items-center gap-2 px-4 py-2 rounded-xl"
+              style={{
+                backgroundColor: "#4a6741",
+                color: "#fdf6f0",
+                border: "none",
+                cursor: "pointer",
+              }}
+            >
+              <ArrowLeft size={16} />
+              Volver al sitio
+            </button>
+
+            <button
+              type="button"
+              onClick={onLogout}
+              className="flex items-center gap-2 px-4 py-2 rounded-xl"
+              style={{
+                backgroundColor: "#f0ebe4",
+                color: "#5a4a3a",
+                border: "1px solid #d9c9bc",
+                cursor: "pointer",
+              }}
+            >
+              <LogOut size={16} />
+              Cerrar sesion
+            </button>
+          </div>
         </div>
       </header>
 
@@ -217,6 +445,448 @@ export function AdminPanel({ products, onProductsChange }: AdminPanelProps) {
             boxShadow: "0 10px 30px rgba(58,46,38,0.08)",
           }}
         >
+          <div className="mb-8">
+            <h2
+              style={{
+                fontFamily: "'Playfair Display', serif",
+                fontSize: "24px",
+                color: "#3a2e26",
+              }}
+            >
+              Editor del banner principal
+            </h2>
+            <p
+              style={{
+                fontFamily: "'Lato', sans-serif",
+                fontSize: "13px",
+                color: "#9e7b5a",
+                marginTop: "4px",
+              }}
+            >
+              Configura la imagen del banner principal y decide que botones
+              mostrar en la portada.
+            </p>
+
+            <form className="mt-4 flex flex-col gap-4" onSubmit={handleSaveHero}>
+              <label className="flex flex-col gap-1.5">
+                <span style={{ fontSize: "13px", color: "#5a4a3a", fontWeight: 700 }}>
+                  Etiqueta superior
+                </span>
+                <input
+                  type="text"
+                  value={heroForm.monthLabel}
+                  onChange={(event) => updateHeroField("monthLabel", event.target.value)}
+                  className="rounded-xl px-4 py-2.5 outline-none"
+                  style={{ border: "1.5px solid #e8d5c4", backgroundColor: "#fdf9f6" }}
+                />
+              </label>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <label className="flex flex-col gap-1.5">
+                  <span style={{ fontSize: "13px", color: "#5a4a3a", fontWeight: 700 }}>
+                    Titulo linea 1
+                  </span>
+                  <input
+                    type="text"
+                    value={heroForm.titleLineOne}
+                    onChange={(event) =>
+                      updateHeroField("titleLineOne", event.target.value)
+                    }
+                    className="rounded-xl px-4 py-2.5 outline-none"
+                    style={{
+                      border: "1.5px solid #e8d5c4",
+                      backgroundColor: "#fdf9f6",
+                    }}
+                  />
+                </label>
+                <label className="flex flex-col gap-1.5">
+                  <span style={{ fontSize: "13px", color: "#5a4a3a", fontWeight: 700 }}>
+                    Titulo linea 2
+                  </span>
+                  <input
+                    type="text"
+                    value={heroForm.titleLineTwo}
+                    onChange={(event) =>
+                      updateHeroField("titleLineTwo", event.target.value)
+                    }
+                    className="rounded-xl px-4 py-2.5 outline-none"
+                    style={{
+                      border: "1.5px solid #e8d5c4",
+                      backgroundColor: "#fdf9f6",
+                    }}
+                  />
+                </label>
+              </div>
+
+              <label className="flex flex-col gap-1.5">
+                <span style={{ fontSize: "13px", color: "#5a4a3a", fontWeight: 700 }}>
+                  Descripcion principal
+                </span>
+                <textarea
+                  value={heroForm.subtitle}
+                  onChange={(event) => updateHeroField("subtitle", event.target.value)}
+                  rows={3}
+                  className="rounded-xl px-4 py-2.5 outline-none resize-none"
+                  style={{ border: "1.5px solid #e8d5c4", backgroundColor: "#fdf9f6" }}
+                />
+              </label>
+
+              <label className="flex flex-col gap-1.5">
+                <span style={{ fontSize: "13px", color: "#5a4a3a", fontWeight: 700 }}>
+                  Texto secundario
+                </span>
+                <input
+                  type="text"
+                  value={heroForm.subtitleHighlight}
+                  onChange={(event) =>
+                    updateHeroField("subtitleHighlight", event.target.value)
+                  }
+                  className="rounded-xl px-4 py-2.5 outline-none"
+                  style={{ border: "1.5px solid #e8d5c4", backgroundColor: "#fdf9f6" }}
+                />
+              </label>
+
+              <label className="flex flex-col gap-1.5">
+                <span style={{ fontSize: "13px", color: "#5a4a3a", fontWeight: 700 }}>
+                  Imagen del banner (seccion completa)
+                </span>
+                <input
+                  type="url"
+                  value={heroForm.bannerImage}
+                  onChange={(event) => updateHeroField("bannerImage", event.target.value)}
+                  placeholder="https://..."
+                  className="rounded-xl px-4 py-2.5 outline-none"
+                  style={{ border: "1.5px solid #e8d5c4", backgroundColor: "#fdf9f6" }}
+                />
+                <label
+                  className="inline-flex items-center justify-center gap-2 px-4 py-2 rounded-xl cursor-pointer w-fit"
+                  style={{
+                    backgroundColor: "#f0ebe4",
+                    color: "#4a6741",
+                    fontSize: "13px",
+                    fontWeight: 700,
+                    opacity: compressingHeroImage ? 0.7 : 1,
+                  }}
+                >
+                  <ImagePlus size={14} />
+                  {compressingHeroImage ? "Comprimiendo..." : "Subir imagen del banner"}
+                  <input
+                    type="file"
+                    accept="image/*"
+                    onChange={handleHeroImageUpload("bannerImage")}
+                    className="hidden"
+                  />
+                </label>
+              </label>
+
+              {heroForm.bannerImage && (
+                <div
+                  className="rounded-2xl overflow-hidden border"
+                  style={{ borderColor: "#e8d5c4", backgroundColor: "#fdf9f6" }}
+                >
+                  <img
+                    src={heroForm.bannerImage}
+                    alt="Vista previa del banner"
+                    className="w-full h-44 object-cover"
+                  />
+                </div>
+              )}
+
+              <div
+                className="rounded-2xl p-4 flex flex-col gap-4"
+                style={{ backgroundColor: "#fbf6f1", border: "1px solid #eedfd2" }}
+              >
+                <h3
+                  style={{
+                    fontFamily: "'Playfair Display', serif",
+                    fontSize: "20px",
+                    color: "#3a2e26",
+                  }}
+                >
+                  Botones del banner
+                </h3>
+
+                <div className="grid grid-cols-1 gap-3">
+                  <label
+                    className="rounded-xl px-3 py-2.5 flex items-center justify-between gap-4"
+                    style={{ backgroundColor: "#fff", border: "1px solid #ecdccd" }}
+                  >
+                    <span style={{ fontSize: "13px", color: "#5a4a3a", fontWeight: 700 }}>
+                      Mostrar boton "Ver arreglos"
+                    </span>
+                    <input
+                      type="checkbox"
+                      checked={heroForm.showGalleryButton}
+                      onChange={(event) =>
+                        updateHeroField("showGalleryButton", event.target.checked)
+                      }
+                    />
+                  </label>
+
+                  {heroForm.showGalleryButton && (
+                    <label className="flex flex-col gap-1.5">
+                      <span
+                        style={{ fontSize: "13px", color: "#5a4a3a", fontWeight: 700 }}
+                      >
+                        Texto del boton de arreglos
+                      </span>
+                      <input
+                        type="text"
+                        value={heroForm.galleryButtonLabel}
+                        onChange={(event) =>
+                          updateHeroField("galleryButtonLabel", event.target.value)
+                        }
+                        className="rounded-xl px-4 py-2.5 outline-none"
+                        style={{
+                          border: "1.5px solid #e8d5c4",
+                          backgroundColor: "#fdf9f6",
+                        }}
+                      />
+                    </label>
+                  )}
+
+                  <label
+                    className="rounded-xl px-3 py-2.5 flex items-center justify-between gap-4"
+                    style={{ backgroundColor: "#fff", border: "1px solid #ecdccd" }}
+                  >
+                    <span style={{ fontSize: "13px", color: "#5a4a3a", fontWeight: 700 }}>
+                      Mostrar boton de pedidos por WhatsApp
+                    </span>
+                    <input
+                      type="checkbox"
+                      checked={heroForm.showWhatsAppButton}
+                      onChange={(event) =>
+                        updateHeroField("showWhatsAppButton", event.target.checked)
+                      }
+                    />
+                  </label>
+
+                  {heroForm.showWhatsAppButton && (
+                    <label className="flex flex-col gap-1.5">
+                      <span
+                        style={{ fontSize: "13px", color: "#5a4a3a", fontWeight: 700 }}
+                      >
+                        Texto del boton WhatsApp
+                      </span>
+                      <input
+                        type="text"
+                        value={heroForm.whatsAppButtonLabel}
+                        onChange={(event) =>
+                          updateHeroField("whatsAppButtonLabel", event.target.value)
+                        }
+                        className="rounded-xl px-4 py-2.5 outline-none"
+                        style={{
+                          border: "1.5px solid #e8d5c4",
+                          backgroundColor: "#fdf9f6",
+                        }}
+                      />
+                    </label>
+                  )}
+                </div>
+
+                <div className="flex items-center justify-between gap-3">
+                  <p style={{ fontSize: "13px", color: "#7a5a4a", fontWeight: 700 }}>
+                    Botones adicionales
+                  </p>
+                  <button
+                    type="button"
+                    onClick={addHeroButton}
+                    className="inline-flex items-center gap-2 px-3 py-2 rounded-xl"
+                    style={{
+                      backgroundColor: "#f0ebe4",
+                      color: "#4a6741",
+                      border: "none",
+                      fontSize: "12px",
+                      fontWeight: 700,
+                      cursor: "pointer",
+                    }}
+                  >
+                    <Plus size={14} />
+                    Agregar boton
+                  </button>
+                </div>
+
+                {heroForm.extraButtons.length === 0 && (
+                  <p style={{ fontSize: "12px", color: "#9e7b5a" }}>
+                    No hay botones extra creados.
+                  </p>
+                )}
+
+                {heroForm.extraButtons.map((button) => (
+                  <div
+                    key={button.id}
+                    className="rounded-2xl p-3 flex flex-col gap-3"
+                    style={{ backgroundColor: "#fff", border: "1px solid #ecdccd" }}
+                  >
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      <label className="flex flex-col gap-1.5">
+                        <span
+                          style={{ fontSize: "12px", color: "#5a4a3a", fontWeight: 700 }}
+                        >
+                          Texto del boton
+                        </span>
+                        <input
+                          type="text"
+                          value={button.label}
+                          onChange={(event) =>
+                            updateHeroButton(button.id, "label", event.target.value)
+                          }
+                          className="rounded-xl px-4 py-2.5 outline-none"
+                          style={{
+                            border: "1.5px solid #e8d5c4",
+                            backgroundColor: "#fdf9f6",
+                          }}
+                        />
+                      </label>
+
+                      <label className="flex flex-col gap-1.5">
+                        <span
+                          style={{ fontSize: "12px", color: "#5a4a3a", fontWeight: 700 }}
+                        >
+                          URL destino
+                        </span>
+                        <input
+                          type="url"
+                          value={button.url}
+                          onChange={(event) =>
+                            updateHeroButton(button.id, "url", event.target.value)
+                          }
+                          placeholder="https://... o /contacto"
+                          className="rounded-xl px-4 py-2.5 outline-none"
+                          style={{
+                            border: "1.5px solid #e8d5c4",
+                            backgroundColor: "#fdf9f6",
+                          }}
+                        />
+                      </label>
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                      <label className="flex flex-col gap-1.5">
+                        <span
+                          style={{ fontSize: "12px", color: "#5a4a3a", fontWeight: 700 }}
+                        >
+                          Estilo
+                        </span>
+                        <select
+                          value={button.variant}
+                          onChange={(event) =>
+                            updateHeroButton(
+                              button.id,
+                              "variant",
+                              event.target.value as HeroButtonVariant
+                            )
+                          }
+                          className="rounded-xl px-4 py-2.5 outline-none"
+                          style={{
+                            border: "1.5px solid #e8d5c4",
+                            backgroundColor: "#fdf9f6",
+                          }}
+                        >
+                          {HERO_BUTTON_VARIANTS.map((variant) => (
+                            <option key={variant.value} value={variant.value}>
+                              {variant.label}
+                            </option>
+                          ))}
+                        </select>
+                      </label>
+
+                      <label
+                        className="rounded-xl px-3 py-2.5 flex items-center justify-between gap-4"
+                        style={{ backgroundColor: "#fdf9f6", border: "1px solid #e8d5c4" }}
+                      >
+                        <span style={{ fontSize: "12px", color: "#5a4a3a", fontWeight: 700 }}>
+                          Visible
+                        </span>
+                        <input
+                          type="checkbox"
+                          checked={button.enabled}
+                          onChange={(event) =>
+                            updateHeroButton(button.id, "enabled", event.target.checked)
+                          }
+                        />
+                      </label>
+
+                      <label
+                        className="rounded-xl px-3 py-2.5 flex items-center justify-between gap-4"
+                        style={{ backgroundColor: "#fdf9f6", border: "1px solid #e8d5c4" }}
+                      >
+                        <span style={{ fontSize: "12px", color: "#5a4a3a", fontWeight: 700 }}>
+                          Nueva pestana
+                        </span>
+                        <input
+                          type="checkbox"
+                          checked={button.openInNewTab}
+                          onChange={(event) =>
+                            updateHeroButton(
+                              button.id,
+                              "openInNewTab",
+                              event.target.checked
+                            )
+                          }
+                        />
+                      </label>
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={() => removeHeroButton(button.id)}
+                      className="inline-flex items-center justify-center gap-2 px-3 py-2 rounded-xl w-fit"
+                      style={{
+                        backgroundColor: "#fbe4dc",
+                        color: "#8a3d2c",
+                        border: "none",
+                        fontSize: "12px",
+                        fontWeight: 700,
+                        cursor: "pointer",
+                      }}
+                    >
+                      <Trash2 size={13} />
+                      Eliminar boton
+                    </button>
+                  </div>
+                ))}
+              </div>
+
+              {bannerMessage && (
+                <p
+                  className="px-3 py-2 rounded-xl"
+                  style={{
+                    backgroundColor:
+                      bannerMessage.type === "success" ? "#eaf4e5" : "#fbe4dc",
+                    color: bannerMessage.type === "success" ? "#2e5c22" : "#8a3d2c",
+                    fontSize: "13px",
+                  }}
+                >
+                  {bannerMessage.text}
+                </p>
+              )}
+
+              <button
+                type="submit"
+                className="flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl"
+                style={{
+                  backgroundColor: "#4a6741",
+                  color: "#fdf6f0",
+                  border: "none",
+                  fontWeight: 700,
+                  cursor: "pointer",
+                }}
+              >
+                <Save size={15} />
+                Guardar banner
+              </button>
+            </form>
+          </div>
+
+          <div
+            className="mb-7"
+            style={{
+              height: "1px",
+              background: "linear-gradient(to right, #e8d5c4, transparent)",
+            }}
+          />
+
           <div className="mb-5">
             <h2
               style={{
@@ -302,8 +972,9 @@ export function AdminPanel({ products, onProductsChange }: AdminPanelProps) {
               </span>
               <input
                 type="number"
-                min={1}
-                step={1000}
+                min={PRODUCT_PRICE_MIN}
+                max={PRODUCT_PRICE_MAX}
+                step={1}
                 value={form.price}
                 onChange={(event) => updateField("price", event.target.value)}
                 placeholder="Ej: 120000"
@@ -340,10 +1011,11 @@ export function AdminPanel({ products, onProductsChange }: AdminPanelProps) {
                   color: "#4a6741",
                   fontSize: "13px",
                   fontWeight: 700,
+                  opacity: compressingProductImage ? 0.7 : 1,
                 }}
               >
                 <Upload size={14} />
-                Subir archivo
+                {compressingProductImage ? "Comprimiendo..." : "Subir archivo"}
                 <input
                   type="file"
                   accept="image/*"

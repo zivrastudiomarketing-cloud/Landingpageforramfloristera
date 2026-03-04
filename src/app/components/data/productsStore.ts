@@ -2,6 +2,13 @@ import { arrangements, type Arrangement } from "./arrangements";
 
 const STORAGE_KEY = "rame_products_v1";
 const FALLBACK_IMAGE = arrangements[0]?.images?.[0] ?? "";
+export const PRODUCT_PRICE_MIN = 1;
+export const PRODUCT_PRICE_MAX = 9_999_999_999;
+
+interface PersistResult {
+  ok: boolean;
+  error?: string;
+}
 
 const cloneSeedProducts = (): Arrangement[] =>
   arrangements.map((item) => ({
@@ -19,6 +26,9 @@ const toStringArray = (value: unknown, fallback: string): string[] => {
   return result.length > 0 ? result : [fallback];
 };
 
+const normalizePrice = (price: number) =>
+  Math.min(PRODUCT_PRICE_MAX, Math.max(PRODUCT_PRICE_MIN, Math.round(price)));
+
 const normalizeProduct = (value: unknown, index: number): Arrangement | null => {
   if (!value || typeof value !== "object") return null;
   const item = value as Partial<Arrangement>;
@@ -34,9 +44,9 @@ const normalizeProduct = (value: unknown, index: number): Arrangement | null => 
     name,
     description: typeof item.description === "string" ? item.description : "",
     price:
-      typeof item.price === "number" && Number.isFinite(item.price) && item.price >= 0
-        ? Math.round(item.price)
-        : 0,
+      typeof item.price === "number" && Number.isFinite(item.price)
+        ? normalizePrice(item.price)
+        : PRODUCT_PRICE_MIN,
     images,
     tags: toStringArray(item.tags, categoryFallback).slice(0, 8),
     flowers: toStringArray(item.flowers, categoryFallback).slice(0, 6),
@@ -68,19 +78,25 @@ export const arrangementFromAdminInput = (
 ): Arrangement => {
   const safeCategory = input.category.trim() || "General";
   const normalizedImage = input.image.trim() || existing?.images?.[0] || FALLBACK_IMAGE;
+  const safeFlowers =
+    existing?.flowers && existing.flowers.length > 0 ? existing.flowers : ["Mixtas"];
+  const safeOccasion =
+    existing?.occasion && existing.occasion.length > 0
+      ? existing.occasion
+      : [safeCategory];
 
   return {
     id: existing?.id ?? nextId,
     name: input.name.trim(),
     description: input.description.trim(),
-    price: Math.max(0, Math.round(input.price)),
+    price: normalizePrice(input.price),
     images: uniqueValues([
       normalizedImage,
       ...(existing?.images ?? []).filter((image) => image !== normalizedImage),
     ]).slice(0, 6),
     tags: uniqueValues([safeCategory, ...(existing?.tags ?? [])]).slice(0, 8),
-    flowers: uniqueValues([safeCategory, ...(existing?.flowers ?? [])]).slice(0, 6),
-    occasion: uniqueValues([safeCategory, ...(existing?.occasion ?? [])]).slice(0, 6),
+    flowers: safeFlowers.slice(0, 6),
+    occasion: uniqueValues(safeOccasion).slice(0, 6),
     colors:
       existing?.colors && existing.colors.length > 0
         ? existing.colors
@@ -109,8 +125,23 @@ export const getProductsFromStorage = (): Arrangement[] => {
   }
 };
 
-export const persistProductsToStorage = (products: Arrangement[]) => {
-  if (typeof window === "undefined") return;
-  window.localStorage.setItem(STORAGE_KEY, JSON.stringify(products));
+const getStorageErrorMessage = (error: unknown) => {
+  if (error instanceof DOMException && error.name === "QuotaExceededError") {
+    return "No hay espacio suficiente en el navegador para guardar los productos. Usa imagenes mas livianas o limpia datos del sitio.";
+  }
+
+  return "No se pudieron guardar los productos en este navegador.";
 };
 
+export const persistProductsToStorage = (
+  products: Arrangement[]
+): PersistResult => {
+  if (typeof window === "undefined") return { ok: true };
+
+  try {
+    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(products));
+    return { ok: true };
+  } catch (error) {
+    return { ok: false, error: getStorageErrorMessage(error) };
+  }
+};
