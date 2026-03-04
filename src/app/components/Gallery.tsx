@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { ArrangementCard } from "./ArrangementCard";
 import { ArrangementModal } from "./ArrangementModal";
 import type { Arrangement } from "./data/arrangements";
@@ -14,9 +14,17 @@ interface GalleryProps {
   products: Arrangement[];
 }
 
+const MOBILE_BREAKPOINT_QUERY = "(max-width: 767px)";
+const MOBILE_BATCH_SIZE = 3;
+
 export function Gallery({ searchFilters, products }: GalleryProps) {
   const [selected, setSelected] = useState<Arrangement | null>(null);
   const [activeTab, setActiveTab] = useState<GalleryTab>("all");
+  const [isMobile, setIsMobile] = useState(() => {
+    if (typeof window === "undefined") return false;
+    return window.matchMedia(MOBILE_BREAKPOINT_QUERY).matches;
+  });
+  const [mobileVisibleCount, setMobileVisibleCount] = useState(MOBILE_BATCH_SIZE);
 
   const featuredItems = useMemo(
     () => applyArrangementFilters(products.filter((item) => item.featured), searchFilters),
@@ -28,6 +36,41 @@ export function Gallery({ searchFilters, products }: GalleryProps) {
   );
 
   const displayItems = activeTab === "featured" ? featuredItems : allItems;
+  const mobileItems = displayItems.slice(0, mobileVisibleCount);
+  const visibleItems = isMobile ? mobileItems : displayItems;
+  const canLoadMoreMobile = isMobile && mobileVisibleCount < displayItems.length;
+  const canResetMobile = isMobile && displayItems.length > MOBILE_BATCH_SIZE;
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const mediaQuery = window.matchMedia(MOBILE_BREAKPOINT_QUERY);
+
+    const applyMatches = (matches: boolean) => setIsMobile(matches);
+    const handleChange = (event: MediaQueryListEvent) => applyMatches(event.matches);
+    applyMatches(mediaQuery.matches);
+
+    if ("addEventListener" in mediaQuery) {
+      mediaQuery.addEventListener("change", handleChange);
+      return () => mediaQuery.removeEventListener("change", handleChange);
+    }
+
+    mediaQuery.addListener(handleChange);
+    return () => mediaQuery.removeListener(handleChange);
+  }, []);
+
+  useEffect(() => {
+    setMobileVisibleCount(MOBILE_BATCH_SIZE);
+  }, [activeTab, searchFilters, products.length]);
+
+  const showMoreMobileProducts = () => {
+    setMobileVisibleCount((previous) =>
+      Math.min(previous + MOBILE_BATCH_SIZE, displayItems.length)
+    );
+  };
+
+  const resetMobileProducts = () => {
+    setMobileVisibleCount(MOBILE_BATCH_SIZE);
+  };
 
   return (
     <>
@@ -46,7 +89,7 @@ export function Gallery({ searchFilters, products }: GalleryProps) {
                   textTransform: "uppercase",
                 }}
               >
-                Colección RAME
+                Coleccion RAME
               </span>
               <div className="w-10 h-[1px]" style={{ backgroundColor: "#c9a96e" }} />
             </div>
@@ -72,7 +115,7 @@ export function Gallery({ searchFilters, products }: GalleryProps) {
                 textAlign: "center",
               }}
             >
-              Cada pieza, diseñada con amor y atención al detalle
+              Cada pieza, diseniada con amor y atencion al detalle
             </p>
           </div>
 
@@ -108,20 +151,73 @@ export function Gallery({ searchFilters, products }: GalleryProps) {
                 color: "#9e7b5a",
               }}
             >
-              Mostrando {displayItems.length} arreglo{displayItems.length !== 1 ? "s" : ""}
+              {isMobile
+                ? `Mostrando ${visibleItems.length} de ${displayItems.length} arreglos`
+                : `Mostrando ${displayItems.length} arreglo${displayItems.length !== 1 ? "s" : ""}`}
             </p>
           )}
 
           {displayItems.length > 0 ? (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-              {displayItems.map((arrangement) => (
-                <ArrangementCard
-                  key={arrangement.id}
-                  arrangement={arrangement}
-                  onClick={setSelected}
-                />
-              ))}
-            </div>
+            <>
+              <div
+                className={
+                  isMobile
+                    ? "grid grid-cols-1 gap-5"
+                    : "grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6"
+                }
+              >
+                {visibleItems.map((arrangement) => (
+                  <ArrangementCard
+                    key={arrangement.id}
+                    arrangement={arrangement}
+                    onClick={setSelected}
+                    mobileLayout={isMobile}
+                  />
+                ))}
+              </div>
+
+              {canLoadMoreMobile && (
+                <div className="flex justify-center mt-8">
+                  <button
+                    type="button"
+                    onClick={showMoreMobileProducts}
+                    className="px-6 py-3 rounded-xl"
+                    style={{
+                      backgroundColor: "#4a6741",
+                      color: "#fdf6f0",
+                      border: "none",
+                      fontFamily: "'Lato', sans-serif",
+                      fontSize: "14px",
+                      fontWeight: 700,
+                      cursor: "pointer",
+                    }}
+                  >
+                    Ver 3 mas
+                  </button>
+                </div>
+              )}
+
+              {!canLoadMoreMobile && canResetMobile && (
+                <div className="flex justify-center mt-8">
+                  <button
+                    type="button"
+                    onClick={resetMobileProducts}
+                    className="px-6 py-3 rounded-xl"
+                    style={{
+                      backgroundColor: "#f0ebe4",
+                      color: "#4a6741",
+                      border: "1px solid #d9c9bc",
+                      fontFamily: "'Lato', sans-serif",
+                      fontSize: "14px",
+                      fontWeight: 700,
+                      cursor: "pointer",
+                    }}
+                  >
+                    Volver a los primeros 3
+                  </button>
+                </div>
+              )}
+            </>
           ) : (
             <div className="flex flex-col items-center py-20 gap-4">
               <span style={{ fontSize: "48px" }}>🌱</span>
@@ -143,7 +239,7 @@ export function Gallery({ searchFilters, products }: GalleryProps) {
                   textAlign: "center",
                 }}
               >
-                Intenta con otras opciones o escríbenos por WhatsApp
+                Intenta con otras opciones o escribenos por WhatsApp
               </p>
             </div>
           )}

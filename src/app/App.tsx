@@ -180,10 +180,7 @@ export default function App() {
       <Header onNavClick={scrollToSection} />
 
       <div ref={heroRef}>
-        <Hero
-          onScrollToGallery={() => scrollToSection("gallery")}
-          content={heroContent}
-        />
+        <Hero content={heroContent} />
       </div>
 
       <SearchFilters onFilter={handleFilter} />
