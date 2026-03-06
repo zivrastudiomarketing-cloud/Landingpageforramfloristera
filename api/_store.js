@@ -1,8 +1,43 @@
-import { list, put } from "@vercel/blob";
+import { get, put } from "@vercel/blob";
 
 const STORE_PATH = "rame-shared-store.json";
+const DEFAULT_ACCESS_ORDER = ["private", "public"];
 
 const hasBlobToken = () => Boolean(process.env.BLOB_READ_WRITE_TOKEN);
+
+const getBlobAccessModes = () => {
+  const configuredAccess = process.env.BLOB_STORE_ACCESS?.trim().toLowerCase();
+  if (configuredAccess === "private" || configuredAccess === "public") {
+    return [
+      configuredAccess,
+      ...DEFAULT_ACCESS_ORDER.filter((access) => access !== configuredAccess),
+    ];
+  }
+
+  return DEFAULT_ACCESS_ORDER;
+};
+
+const getErrorMessage = (error, fallback) =>
+  error instanceof Error && error.message ? error.message : fallback;
+
+const isAccessMismatchError = (error) => {
+  const message = getErrorMessage(error, "").toLowerCase();
+  return (
+    message.includes("private store") ||
+    message.includes("public store") ||
+    message.includes("public access") ||
+    message.includes("private access")
+  );
+};
+
+const parseBlobJson = async (stream) => {
+  const response = new Response(stream, {
+    headers: {
+      "Content-Type": "application/json; charset=utf-8",
+    },
+  });
+  return response.json();
+};
 
 const safeStorePayload = (value) => {
   if (!value || typeof value !== "object") return {};
@@ -29,38 +64,53 @@ export const readSharedStore = async () => {
   }
 
   try {
-    const { blobs } = await list({
-      prefix: STORE_PATH,
-      token: process.env.BLOB_READ_WRITE_TOKEN,
-      limit: 10,
-    });
+    let lastError = null;
 
-    const exactBlob = blobs.find((blob) => blob.pathname === STORE_PATH);
-    const latestBlob = exactBlob ?? blobs[0];
-    if (!latestBlob) {
-      return {
-        ok: true,
-        storageEnabled: true,
-        store: {},
-      };
+    for (const access of getBlobAccessModes()) {
+      try {
+        const blobResult = await get(STORE_PATH, {
+          access,
+          token: process.env.BLOB_READ_WRITE_TOKEN,
+          useCache: false,
+        });
+
+        if (!blobResult) {
+          return {
+            ok: true,
+            storageEnabled: true,
+            store: {},
+          };
+        }
+
+        if (blobResult.statusCode !== 200 || !blobResult.stream) {
+          return {
+            ok: true,
+            storageEnabled: true,
+            store: {},
+          };
+        }
+
+        const rawPayload = await parseBlobJson(blobResult.stream);
+        return {
+          ok: true,
+          storageEnabled: true,
+          store: safeStorePayload(rawPayload),
+        };
+      } catch (error) {
+        lastError = error;
+        if (isAccessMismatchError(error)) {
+          continue;
+        }
+        break;
+      }
     }
 
-    const response = await fetch(latestBlob.url, { cache: "no-store" });
-    if (!response.ok) {
-      throw new Error("No se pudo leer el store compartido.");
-    }
-
-    const rawPayload = await response.json();
-    return {
-      ok: true,
-      storageEnabled: true,
-      store: safeStorePayload(rawPayload),
-    };
+    throw lastError ?? new Error("No se pudo leer el store compartido.");
   } catch (error) {
     return {
       ok: false,
       storageEnabled: true,
-      error: error instanceof Error ? error.message : "Error leyendo store compartido.",
+      error: getErrorMessage(error, "Error leyendo store compartido."),
       store: {},
     };
   }
@@ -76,19 +126,34 @@ export const writeSharedStore = async (nextStore) => {
   }
 
   try {
-    await put(STORE_PATH, JSON.stringify(safeStorePayload(nextStore)), {
-      access: "public",
-      addRandomSuffix: false,
-      contentType: "application/json; charset=utf-8",
-      token: process.env.BLOB_READ_WRITE_TOKEN,
-    });
+    let lastError = null;
 
-    return { ok: true, storageEnabled: true };
+    for (const access of getBlobAccessModes()) {
+      try {
+        await put(STORE_PATH, JSON.stringify(safeStorePayload(nextStore)), {
+          access,
+          addRandomSuffix: false,
+          allowOverwrite: true,
+          contentType: "application/json; charset=utf-8",
+          token: process.env.BLOB_READ_WRITE_TOKEN,
+        });
+
+        return { ok: true, storageEnabled: true };
+      } catch (error) {
+        lastError = error;
+        if (isAccessMismatchError(error)) {
+          continue;
+        }
+        break;
+      }
+    }
+
+    throw lastError ?? new Error("No se pudo escribir el store compartido.");
   } catch (error) {
     return {
       ok: false,
       storageEnabled: true,
-      error: error instanceof Error ? error.message : "Error escribiendo store compartido.",
+      error: getErrorMessage(error, "Error escribiendo store compartido."),
     };
   }
 };
