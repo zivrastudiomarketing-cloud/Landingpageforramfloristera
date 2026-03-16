@@ -302,7 +302,11 @@ export default function App() {
       <SearchFilters onFilter={handleFilter} />
 
       <div ref={galleryRef}>
-        <Gallery searchFilters={searchFilters} products={products} />
+        <Gallery
+          searchFilters={searchFilters}
+          products={products}
+          featuredLabel={heroContent.featuredTabLabel.trim() || "Arreglos del mes"}
+        />
       </div>
 
       <div ref={contactRef}>
@@ -313,3 +317,5 @@ export default function App() {
     </div>
   );
 }
+
+

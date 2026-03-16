@@ -1,4 +1,4 @@
-export type HeroButtonVariant = "filled" | "outline" | "light";
+﻿export type HeroButtonVariant = "filled" | "outline" | "light";
 
 export interface HeroExtraButton {
   id: string;
@@ -16,6 +16,7 @@ export interface HeroContent {
   subtitle: string;
   subtitleHighlight: string;
   bannerImage: string;
+  featuredTabLabel: string;
   showGalleryButton: boolean;
   galleryButtonLabel: string;
   showWhatsAppButton: boolean;
@@ -50,6 +51,7 @@ export const defaultHeroContent: HeroContent = {
   subtitleHighlight: "Cada flor, una historia. Cada bouquet, un abrazo.",
   bannerImage:
     "https://images.unsplash.com/photo-1771134572111-967700a8bb31?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxyb21hbnRpYyUyMHJvc2UlMjBib3VxdWV0JTIwcGluayUyMGZsb3dlcnMlMjBlbGVnYW50fGVufDF8fHx8MTc3MjU0NzQwNXww&ixlib=rb-4.1.0&q=80&w=1600",
+  featuredTabLabel: "Arreglos del mes",
   showGalleryButton: true,
   galleryButtonLabel: "Ver arreglos",
   showWhatsAppButton: true,
@@ -106,6 +108,10 @@ const normalizeHeroContent = (value: unknown): HeroContent => {
     bannerImage: sanitizeText(
       parsed.bannerImage ?? parsed.mainImage,
       defaultHeroContent.bannerImage
+    ),
+    featuredTabLabel: sanitizeText(
+      parsed.featuredTabLabel,
+      defaultHeroContent.featuredTabLabel
     ),
     showGalleryButton: sanitizeBoolean(
       parsed.showGalleryButton,

@@ -170,6 +170,7 @@ export function AdminPanel({
     const normalized: HeroContent = {
       ...heroForm,
       bannerImage: heroForm.bannerImage.trim(),
+      featuredTabLabel: heroForm.featuredTabLabel.trim() || "Arreglos del mes",
     };
 
     if (!normalized.bannerImage) {
@@ -443,7 +444,7 @@ export function AdminPanel({
                 marginTop: "4px",
               }}
             >
-              Aqui solo puedes actualizar la imagen principal del banner.
+              Aqui puedes actualizar la imagen principal y el nombre de la categoria destacada.
             </p>
 
             <form className="mt-4 flex flex-col gap-4" onSubmit={handleSaveHero}>
@@ -478,6 +479,20 @@ export function AdminPanel({
                     className="hidden"
                   />
                 </label>
+              </label>
+
+              <label className="flex flex-col gap-1.5">
+                <span style={{ fontSize: "13px", color: "#5a4a3a", fontWeight: 700 }}>
+                  Nombre de la categoria destacada
+                </span>
+                <input
+                  type="text"
+                  value={heroForm.featuredTabLabel}
+                  onChange={(event) => updateHeroField("featuredTabLabel", event.target.value)}
+                  placeholder="Ej: Favoritos de la semana"
+                  className="rounded-xl px-4 py-2.5 outline-none"
+                  style={{ border: "1.5px solid #e8d5c4", backgroundColor: "#fdf9f6" }}
+                />
               </label>
 
               {heroForm.bannerImage && (
@@ -1068,3 +1083,6 @@ export function AdminPanel({
     </div>
   );
 }
+
+
+

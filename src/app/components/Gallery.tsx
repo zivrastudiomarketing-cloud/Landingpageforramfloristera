@@ -1,10 +1,9 @@
-import { useEffect, useMemo, useState } from "react";
+﻿import { useEffect, useMemo, useState } from "react";
 import { ArrangementCard } from "./ArrangementCard";
 import { ArrangementModal } from "./ArrangementModal";
 import type { Arrangement } from "./data/arrangements";
 import {
   applyArrangementFilters,
-  GALLERY_TABS,
   type ArrangementSearchFilters,
   type GalleryTab,
 } from "./data/searchFilters";
@@ -12,17 +11,26 @@ import {
 interface GalleryProps {
   searchFilters?: ArrangementSearchFilters | null;
   products: Arrangement[];
+  featuredLabel: string;
 }
 
 const MOBILE_BREAKPOINT_QUERY = "(max-width: 767px)";
 
-export function Gallery({ searchFilters, products }: GalleryProps) {
+export function Gallery({ searchFilters, products, featuredLabel }: GalleryProps) {
   const [selected, setSelected] = useState<Arrangement | null>(null);
   const [activeTab, setActiveTab] = useState<GalleryTab>("all");
   const [isMobile, setIsMobile] = useState(() => {
     if (typeof window === "undefined") return false;
     return window.matchMedia(MOBILE_BREAKPOINT_QUERY).matches;
   });
+
+  const tabs = useMemo(
+    () => [
+      { key: "featured" as const, label: `🌸 ${featuredLabel}` },
+      { key: "all" as const, label: "Ver todos" },
+    ],
+    [featuredLabel]
+  );
 
   const featuredItems = useMemo(
     () => applyArrangementFilters(products.filter((item) => item.featured), searchFilters),
@@ -101,7 +109,7 @@ export function Gallery({ searchFilters, products }: GalleryProps) {
           </div>
 
           <div className="flex items-center justify-center gap-2 mb-10">
-            {GALLERY_TABS.map((tab) => (
+            {tabs.map((tab) => (
               <button
                 key={tab.key}
                 type="button"
@@ -137,24 +145,22 @@ export function Gallery({ searchFilters, products }: GalleryProps) {
           )}
 
           {displayItems.length > 0 ? (
-            <>
-              <div
-                className={
-                  isMobile
-                    ? "grid grid-cols-2 gap-4"
-                    : "grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6"
-                }
-              >
-                {visibleItems.map((arrangement) => (
-                  <ArrangementCard
-                    key={arrangement.id}
-                    arrangement={arrangement}
-                    onClick={setSelected}
-                    mobileLayout={isMobile}
-                  />
-                ))}
-              </div>
-            </>
+            <div
+              className={
+                isMobile
+                  ? "grid grid-cols-2 gap-4"
+                  : "grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6"
+              }
+            >
+              {visibleItems.map((arrangement) => (
+                <ArrangementCard
+                  key={arrangement.id}
+                  arrangement={arrangement}
+                  onClick={setSelected}
+                  mobileLayout={isMobile}
+                />
+              ))}
+            </div>
           ) : (
             <div className="flex flex-col items-center py-20 gap-4">
               <span style={{ fontSize: "48px" }}>🌱</span>
