@@ -3,6 +3,7 @@
   type FormEvent,
   useEffect,
   useMemo,
+  useRef,
   useState,
 } from "react";
 import {
@@ -124,15 +125,25 @@ export function AdminPanel({
 }: AdminPanelProps) {
   const [heroForm, setHeroForm] = useState<HeroContent>(() => createHeroFormState(heroContent));
   const [bannerMessage, setBannerMessage] = useState<BannerMessage>(null);
+  const [featuredLabelMessage, setFeaturedLabelMessage] = useState<BannerMessage>(null);
+  const [featuredLabelForm, setFeaturedLabelForm] = useState(() => heroContent.featuredTabLabel);
   const [form, setForm] = useState<ProductFormState>(EMPTY_FORM);
   const [editingId, setEditingId] = useState<number | null>(null);
   const [errorMessage, setErrorMessage] = useState("");
   const [compressingHeroImageIndex, setCompressingHeroImageIndex] = useState<number | null>(null);
   const [compressingProductImage, setCompressingProductImage] = useState(false);
+  const heroBannerSignature = JSON.stringify(getHeroEditorImages(heroContent));
+  const previousHeroBannerSignatureRef = useRef(heroBannerSignature);
 
   useEffect(() => {
-    setHeroForm(createHeroFormState(heroContent));
-  }, [heroContent]);
+    if (heroBannerSignature !== previousHeroBannerSignatureRef.current) {
+      setHeroForm(createHeroFormState(heroContent));
+      previousHeroBannerSignatureRef.current = heroBannerSignature;
+    }
+
+    setFeaturedLabelForm(heroContent.featuredTabLabel);
+    setFeaturedLabelMessage(null);
+  }, [heroBannerSignature, heroContent]);
 
   const sortedProducts = useMemo(
     () => [...products].sort((a, b) => b.id - a.id),
@@ -236,9 +247,9 @@ export function AdminPanel({
 
     const normalized: HeroContent = {
       ...heroForm,
+      featuredTabLabel: heroContent.featuredTabLabel,
       bannerImages,
       bannerImage: bannerImages[0] ?? "",
-      featuredTabLabel: heroForm.featuredTabLabel.trim() || "Arreglos del mes",
     };
 
     if (bannerImages.length === 0) {
@@ -261,6 +272,30 @@ export function AdminPanel({
 
     setHeroForm(createHeroFormState(normalized));
     setBannerMessage({ type: "success", text: "Banner principal actualizado." });
+  };
+
+  const handleSaveFeaturedLabel = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+
+    const normalized: HeroContent = {
+      ...heroContent,
+      featuredTabLabel: featuredLabelForm.trim() || "Arreglos del mes",
+    };
+
+    const result = await onHeroContentChange(normalized);
+    if (!result.ok) {
+      setFeaturedLabelMessage({
+        type: "error",
+        text: result.error ?? "No se pudo guardar la categoria destacada.",
+      });
+      return;
+    }
+
+    setFeaturedLabelForm(normalized.featuredTabLabel);
+    setFeaturedLabelMessage({
+      type: "success",
+      text: "Categoria destacada actualizada.",
+    });
   };
 
   const updateField = (key: keyof ProductFormState, value: string | boolean) => {
@@ -513,7 +548,7 @@ export function AdminPanel({
                 marginTop: "4px",
               }}
             >
-              Aqui puedes administrar uno o varios banners principales y el nombre de la categoria destacada.
+              Aqui puedes administrar uno o varios banners principales.
             </p>
 
             <form className="mt-4 flex flex-col gap-4" onSubmit={handleSaveHero}>
@@ -610,19 +645,6 @@ export function AdminPanel({
                 </button>
               </div>
 
-              <label className="flex flex-col gap-1.5">
-                <span style={{ fontSize: "13px", color: "#5a4a3a", fontWeight: 700 }}>
-                  Nombre de la categoria destacada
-                </span>
-                <input
-                  type="text"
-                  value={heroForm.featuredTabLabel}
-                  onChange={(event) => updateHeroField("featuredTabLabel", event.target.value)}
-                  placeholder="Ej: Favoritos de la semana"
-                  className="rounded-xl px-4 py-2.5 outline-none"
-                  style={{ border: "1.5px solid #e8d5c4", backgroundColor: "#fdf9f6" }}
-                />
-              </label>
 
               {bannerMessage && (
                 <p
@@ -653,6 +675,80 @@ export function AdminPanel({
                 Guardar banner
               </button>
             </form>
+
+            <div
+              className="mt-6 pt-6"
+              style={{ borderTop: "1px solid #efe2d6" }}
+            >
+              <h3
+                style={{
+                  fontFamily: "'Playfair Display', serif",
+                  fontSize: "20px",
+                  color: "#3a2e26",
+                }}
+              >
+                Categoria destacada
+              </h3>
+              <p
+                style={{
+                  fontFamily: "'Lato', sans-serif",
+                  fontSize: "13px",
+                  color: "#9e7b5a",
+                  marginTop: "4px",
+                }}
+              >
+                Este guardado es independiente del banner principal.
+              </p>
+
+              <form className="mt-4 flex flex-col gap-4" onSubmit={handleSaveFeaturedLabel}>
+                <label className="flex flex-col gap-1.5">
+                  <span style={{ fontSize: "13px", color: "#5a4a3a", fontWeight: 700 }}>
+                    Nombre de la categoria destacada
+                  </span>
+                  <input
+                    type="text"
+                    value={featuredLabelForm}
+                    onChange={(event) => {
+                      setFeaturedLabelForm(event.target.value);
+                      if (featuredLabelMessage) setFeaturedLabelMessage(null);
+                    }}
+                    placeholder="Ej: Favoritos de la semana"
+                    className="rounded-xl px-4 py-2.5 outline-none"
+                    style={{ border: "1.5px solid #e8d5c4", backgroundColor: "#fdf9f6" }}
+                  />
+                </label>
+
+                {featuredLabelMessage && (
+                  <p
+                    className="px-3 py-2 rounded-xl"
+                    style={{
+                      backgroundColor:
+                        featuredLabelMessage.type === "success" ? "#eaf4e5" : "#fbe4dc",
+                      color:
+                        featuredLabelMessage.type === "success" ? "#2e5c22" : "#8a3d2c",
+                      fontSize: "13px",
+                    }}
+                  >
+                    {featuredLabelMessage.text}
+                  </p>
+                )}
+
+                <button
+                  type="submit"
+                  className="flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl w-fit"
+                  style={{
+                    backgroundColor: "#4a6741",
+                    color: "#fdf6f0",
+                    border: "none",
+                    fontWeight: 700,
+                    cursor: "pointer",
+                  }}
+                >
+                  <Save size={15} />
+                  Guardar categoria destacada
+                </button>
+              </form>
+            </div>
           </div>
 
           <div
@@ -807,7 +903,7 @@ export function AdminPanel({
                 style={pillButtonStyle(form.featured)}
               >
                 <Star size={15} />
-                {form.featured ? "Incluido en Arreglos del mes" : "Destacar en Arreglos del mes"}
+                {form.featured ? "Destacado" : "Destacar"}
               </button>
 
               <button
@@ -1199,6 +1295,11 @@ export function AdminPanel({
     </div>
   );
 }
+
+
+
+
+
 
 
 
